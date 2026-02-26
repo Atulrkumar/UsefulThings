@@ -1,0 +1,198 @@
+REPORT zabap5_int_alv_fm.
+
+*---------------------------------------------------------------------*
+* Table Declarations
+*---------------------------------------------------------------------*
+TABLES: zabap5_kna1,     " Customer Master Table
+        zabap5_vbrk.     " Billing Header Table
+
+*---------------------------------------------------------------------*
+* Internal Tables & Work Areas
+*---------------------------------------------------------------------*
+DATA: gt_kna1 TYPE TABLE OF zabap5_kna1,   " Header ALV data
+      gs_kna1 TYPE zabap5_kna1,
+      gt_vbrk TYPE TABLE OF zabap5_vbrk.   " Detail ALV data
+
+DATA: gt_fcat   TYPE slis_t_fieldcat_alv,  " Field catalog for ALV
+      gs_fcat   TYPE slis_fieldcat_alv,
+      gt_header TYPE slis_t_listheader,    " Header structure
+      gs_header TYPE slis_listheader.
+
+*---------------------------------------------------------------------*
+* Selection Screen
+*---------------------------------------------------------------------*
+SELECT-OPTIONS: s_kunnr FOR zabap5_kna1-kunnr.
+
+*---------------------------------------------------------------------*
+* Start of Selection – Fetch Header Data
+*---------------------------------------------------------------------*
+START-OF-SELECTION.
+
+  " Fetch customer data based on selection range
+  SELECT *
+    FROM zabap5_kna1
+    INTO TABLE gt_kna1
+    WHERE kunnr IN s_kunnr.
+
+  IF gt_kna1 IS INITIAL.
+    MESSAGE 'No Customer Data Found' TYPE 'E'.
+  ENDIF.
+
+  PERFORM build_field_catalog.
+
+  " Display First ALV (Customer Data)
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program      = sy-repid
+      i_callback_user_command = 'USER_COMMAND'  " Handles double click
+      i_callback_top_of_page  = 'TOP_OF_PAGE'   " Header display
+      it_fieldcat             = gt_fcat
+    TABLES
+      t_outtab                = gt_kna1.
+
+*---------------------------------------------------------------------*
+* Build Field Catalog for First ALV
+*---------------------------------------------------------------------*
+FORM build_field_catalog.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'KUNNR'.
+  gs_fcat-seltext_m = 'Customer'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'NAME1'.
+  gs_fcat-seltext_m = 'Name'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'ORT01'.
+  gs_fcat-seltext_m = 'City'.
+  APPEND gs_fcat TO gt_fcat.
+
+  CLEAR gs_fcat.
+  gs_fcat-fieldname = 'LAND1'.
+  gs_fcat-seltext_m = 'Country'.
+  APPEND gs_fcat TO gt_fcat.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* Header for First ALV Screen
+*---------------------------------------------------------------------*
+FORM top_of_page.
+
+  REFRESH gt_header.
+
+  " Main Title
+  gs_header-typ  = 'H'.
+  gs_header-info = 'ABAP5 Customer Master Data'.
+  APPEND gs_header TO gt_header.
+
+  " System Information
+  gs_header-typ  = 'S'.
+  gs_header-key  = 'Client'.
+  gs_header-info = sy-mandt.
+  APPEND gs_header TO gt_header.
+
+  gs_header-typ  = 'S'.
+  gs_header-key  = 'User'.
+  gs_header-info = sy-uname.
+  APPEND gs_header TO gt_header.
+
+  gs_header-typ  = 'S'.
+  gs_header-key  = 'Date'.
+  WRITE sy-datum TO gs_header-info.
+  APPEND gs_header TO gt_header.
+
+  gs_header-typ  = 'S'.
+  gs_header-key  = 'Time'.
+  WRITE sy-uzeit TO gs_header-info.
+  APPEND gs_header TO gt_header.
+
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+    EXPORTING it_list_commentary = gt_header.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* Handle Double Click (Interactive Logic)
+*---------------------------------------------------------------------*
+FORM user_command USING r_ucomm LIKE sy-ucomm
+                        rs_selfield TYPE slis_selfield.
+
+  IF r_ucomm = '&IC1'.  " Double Click
+
+    " Read selected customer
+    READ TABLE gt_kna1 INTO gs_kna1 INDEX rs_selfield-tabindex.
+
+    " Fetch billing data for selected customer
+    SELECT *
+      FROM zabap5_vbrk
+      INTO TABLE gt_vbrk
+      WHERE kunnr = gs_kna1-kunnr.
+
+    PERFORM display_second_alv.
+
+  ENDIF.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* Display Second ALV (Billing Data)
+*---------------------------------------------------------------------*
+FORM display_second_alv.
+
+  DATA: lt_fcat TYPE slis_t_fieldcat_alv,
+        ls_fcat TYPE slis_fieldcat_alv.
+
+  CLEAR ls_fcat.
+  ls_fcat-fieldname = 'VBELN'.
+  ls_fcat-seltext_m = 'Billing Doc'.
+  APPEND ls_fcat TO lt_fcat.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program     = sy-repid
+      i_callback_top_of_page = 'TOP_OF_PAGE2'
+      it_fieldcat            = lt_fcat
+    TABLES
+      t_outtab               = gt_vbrk.
+
+ENDFORM.
+
+*---------------------------------------------------------------------*
+* Header for Second ALV Screen
+*---------------------------------------------------------------------*
+FORM top_of_page2.
+
+  REFRESH gt_header.
+
+  gs_header-typ  = 'H'.
+  gs_header-info = 'ABAP5 Billing Data'.
+  APPEND gs_header TO gt_header.
+
+  gs_header-typ  = 'S'.
+  gs_header-key  = 'Client'.
+  gs_header-info = sy-mandt.
+  APPEND gs_header TO gt_header.
+
+  gs_header-typ  = 'S'.
+  gs_header-key  = 'User'.
+  gs_header-info = sy-uname.
+  APPEND gs_header TO gt_header.
+
+  gs_header-typ  = 'S'.
+  gs_header-key  = 'Date'.
+  WRITE sy-datum TO gs_header-info.
+  APPEND gs_header TO gt_header.
+
+  gs_header-typ  = 'S'.
+  gs_header-key  = 'Time'.
+  WRITE sy-uzeit TO gs_header-info.
+  APPEND gs_header TO gt_header.
+
+  CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+    EXPORTING it_list_commentary = gt_header.
+
+ENDFORM.
