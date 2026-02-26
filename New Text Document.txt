@@ -1,0 +1,214 @@
+ALV OOPS CODE 
+*&---------------------------------------------------------------------*
+*& Report Z12_ALV_INT_OOPS_P1
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT Z12_ALV_INT_OOPS_P1.
+TABLES: z12pm1_kna1, z12pm1_vbrk.
+
+DATA : IT_KNA1 TYPE STANDARD TABLE OF Z12PM1_KNA1,
+      WA_KNA1 TYPE Z12PM1_KNA1,
+      IT_VBRK TYPE STANDARD TABLE OF Z12PM1_VBRK,
+      WA_VBRK TYPE Z12PM1_VBRK.
+
+DATA : GRID_KNA1 TYPE REF TO CL_GUI_ALV_GRID,
+      GRID_VBRK TYPE REF TO CL_GUI_ALV_GRID,
+      CUST_KNA1 TYPE REF TO CL_GUI_CUSTOM_CONTAINER,
+      CUST_VBRK TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+
+DATA: Z12_MANDT TYPE MANDT,
+      Z12_USER TYPE SY-UNAME,
+      Z12_TIME(8) TYPE C,
+      Z12_DATE(10) TYPE C.
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+SELECT-OPTIONS s_kunnr for z12pm1_kna1-kunnr.
+SELECTION-SCREEN END OF BLOCK b1.
+
+at SELECTION-SCREEN on s_kunnr.
+  IF s_kunnr is INITIAL.
+    MESSAGE'input value for kunnr' TYPE 'W'.
+    ELSe.
+      select SINGLE * from z12pm1_kna1 INTO CORRESPONDING FIELDS OF wa_kna1 whERE kunnr BETWEEN s_kunnr-low AND s_kunnr-high.
+        if sy-subrc <> 0.
+          MESSAGE'enter valid range' TYPE 'W'.
+          ENDIF.
+
+  ENDIF.
+
+
+START-OF-SELECTION.
+
+SELECT KUNNR LAND1 NAME1 ORT01 FROM Z12PM1_KNA1 INTO CORRESPONDING FIELDS OF TABLE IT_KNA1 WHERE kunnr BETWEEN s_kunnr-low AND s_kunnr-high.
+  END-OF-SELECTION.
+
+
+
+  CALL SCREEN 002.
+
+  CLASS EVNT_TRIGGER DEFINITION.
+    PUBLIC SECTION.
+    METHODS HANDLE_DBL_CLICK FOR EVENT DOUBLE_CLICK OF CL_GUI_ALV_GRID IMPORTING E_ROW.
+    ENDCLASS.
+
+  CLASS EVNT_TRIGGER IMPLEMENTATION.
+    METHOD HANDLE_DBL_CLICK.
+    READ TABLE IT_KNA1 INDEX E_ROW-INDEX INTO WA_KNA1.
+    SELECT KUNNR VBELN FKART FKTYP FROM Z12PM1_VBRK INTO CORRESPONDING FIELDS OF TABLE IT_VBRK WHERE KUNNR EQ WA_KNA1-KUNNR.
+
+      CALL SCREEN 003.
+    ENDMETHOD.
+    ENDCLASS.
+
+data evt_trigger TYPE REF TO evnt_trigger.
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_0002 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_0002 OUTPUT.
+* SET PF-STATUS 'xxxxxxxx'.
+* SET TITLEBAR 'xxx'.
+Z12_MANDT = SY-MANDT.
+Z12_USER = SY-UNAME.
+Z12_DATE = SY-DATUM.
+WRITE sy-uzeit TO Z12_TIME.
+
+
+CREATE OBJECT cust_kna1
+  EXPORTING
+*    parent                      =
+    container_name              = 'C1_KNA1'
+
+    .
+
+
+CREATE OBJECT grid_kna1
+  EXPORTING
+*    i_shellstyle      = 0
+*    i_lifetime        =
+    i_parent          = CUST_KNA1
+
+    .
+
+
+CALL METHOD grid_kna1->set_table_for_first_display
+  EXPORTING
+*    i_buffer_active               =
+*    i_bypassing_buffer            =
+*    i_consistency_check           =
+    i_structure_name              = 'Z12PM1_KNA1'
+*    is_variant                    =
+*    i_save                        =
+*    i_default                     = 'X'
+*    is_layout                     =
+*    is_print                      =
+*    it_special_groups             =
+*    it_toolbar_excluding          =
+*    it_hyperlink                  =
+*    it_alv_graphics               =
+*    it_except_qinfo               =
+*    ir_salv_adapter               =
+  CHANGING
+    it_outtab                     = IT_KNA1
+*    it_fieldcatalog               =
+*    it_sort                       =
+*    it_filter                     =
+*  EXCEPTIONS
+*    invalid_parameter_combination = 1
+*    program_error                 = 2
+*    too_many_lines                = 3
+*    others                        = 4
+        .
+IF sy-subrc <> 0.
+* Implement suitable error handling here
+ENDIF.
+
+
+
+CREATE OBJECT evt_trigger.
+SET HANDLER evt_trigger->HANDLE_DBL_CLICK FOR GRID_KNA1.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0002  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_0002 INPUT.
+IF SY-UCOMM EQ 'LEV'.
+  LEAVE PROGRAM.
+  ENDIF.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0003 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_0003 OUTPUT.
+* SET PF-STATUS 'xxxxxxxx'.
+* SET TITLEBAR 'xxx'.
+
+  Z12_MANDT = SY-MANDT.
+Z12_USER = SY-UNAME.
+WRITE SY-DATUM TO Z12_DATE.
+WRITE sy-uzeit TO Z12_TIME.
+
+CREATE OBJECT cust_vbrk
+  EXPORTING
+*    parent                      =
+    container_name              = 'C2'
+
+    .
+CREATE OBJECT grid_vbrk
+  EXPORTING
+*    i_shellstyle      = 0
+*    i_lifetime        =
+    i_parent          = CUST_vbrk
+
+    .
+CALL METHOD grid_vbrk->set_table_for_first_display
+  EXPORTING
+*    i_buffer_active               =
+*    i_bypassing_buffer            =
+*    i_consistency_check           =
+    i_structure_name              = 'Z12PM1_vbrk'
+*    is_variant                    =
+*    i_save                        =
+*    i_default                     = 'X'
+*    is_layout                     =
+*    is_print                      =
+*    it_special_groups             =
+*    it_toolbar_excluding          =
+*    it_hyperlink                  =
+*    it_alv_graphics               =
+*    it_except_qinfo               =
+*    ir_salv_adapter               =
+  CHANGING
+    it_outtab                     = IT_vbrk
+*    it_fieldcatalog               =
+*    it_sort                       =
+*    it_filter                     =
+*  EXCEPTIONS
+*    invalid_parameter_combination = 1
+*    program_error                 = 2
+*    too_many_lines                = 3
+*    others                        = 4
+        .
+IF sy-subrc <> 0.
+* Implement suitable error handling here
+ENDIF.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0003  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_0003 INPUT.
+IF SY-UCOMM EQ 'LEV'.
+  LEAVE PROGRAM.
+  ENDIF.
+ENDMODULE.
